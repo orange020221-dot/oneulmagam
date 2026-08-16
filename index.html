@@ -61,7 +61,7 @@
       width: min(430px, 100%);
       margin: 0 auto;
       min-height: 100dvh;
-      padding: 28px 20px calc(108px + var(--safe-b));
+      padding: 28px 20px calc(132px + var(--safe-b));
     }
 
     header { padding-bottom: 20px; }
@@ -229,6 +229,17 @@
       padding: 12px 20px calc(16px + var(--safe-b));
       background: linear-gradient(180deg, transparent, var(--paper) 28%);
     }
+    .dock-row { display: flex; gap: 8px; }
+    .dock-row .ghost,
+    .dock-row .primary { flex: 1; padding: 14px 12px; border-radius: 16px; }
+    .help {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .status-line { min-height: 1.4em; margin: 0 0 10px; font-size: 13px; color: var(--done); }
+    .status-line.err { color: var(--deadline); }
     .primary {
       width: 100%;
       border: 0;
@@ -336,8 +347,29 @@
   </div>
 
   <div class="dock">
-    <button class="primary" id="openForm" type="button">일정 넣기</button>
+    <div class="dock-row">
+      <button class="ghost" id="openImport" type="button">아이캠퍼스에서 가져오기</button>
+      <button class="primary" id="openForm" type="button">일정 넣기</button>
+    </div>
   </div>
+
+  <dialog id="importSheet">
+    <form id="importForm" method="dialog">
+      <h2>아이캠퍼스에서 가져오기</h2>
+      <p class="help">학번·비밀번호는 받지 않습니다. 아이캠퍼스 캘린더 → Calendar Feed 링크를 붙여넣거나, 내려받은 일정 CSV를 올리면 됩니다.</p>
+      <label>캘린더 피드 주소
+        <input id="feedUrl" name="feed" type="url" placeholder="https://canvas.skku.edu/feeds/calendars/user_….ics" />
+      </label>
+      <label>또는 CSV 파일
+        <input id="csvFile" type="file" accept=".csv,text/csv" />
+      </label>
+      <p class="status-line" id="importStatus"></p>
+      <div class="form-actions">
+        <button class="ghost" id="cancelImport" type="button">닫기</button>
+        <button class="primary" id="runImport" type="submit">가져오기</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="sheet">
     <form id="form" method="dialog">
@@ -370,6 +402,7 @@
 
   <script>
     const KEY = "oneglance.v1";
+    const FEED_KEY = "oneglance.feed";
     const TYPES = ["과제", "강의", "퀴즈", "시험"];
     const $ = (id) => document.getElementById(id);
 
@@ -580,6 +613,150 @@
       sheet.showModal();
     };
     $("cancel").onclick = () => sheet.close();
+
+    const importSheet = $("importSheet");
+    $("openImport").onclick = () => {
+      $("feedUrl").value = localStorage.getItem(FEED_KEY) || "";
+      $("importStatus").textContent = "";
+      $("importStatus").classList.remove("err");
+      importSheet.showModal();
+    };
+    $("cancelImport").onclick = () => importSheet.close();
+
+    function guessType(title, given) {
+      const raw = `${given || ""} ${title || ""}`;
+      if (/퀴즈|quiz/i.test(raw)) return "퀴즈";
+      if (/시험|exam|midterm|final/i.test(raw)) return "시험";
+      if (/강의|lecture|출석/i.test(raw)) return "강의";
+      if (/과제|assignment|homework/i.test(raw)) return "과제";
+      if (TYPES.includes(given)) return given;
+      return "과제";
+    }
+
+    function parseIcsDate(value) {
+      const m = String(value || "").match(/(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?(Z)?/);
+      if (!m) return null;
+      const [, y, mo, d, hh, mm, ss, z] = m;
+      if (z) return new Date(Date.UTC(+y, +mo - 1, +d, +(hh || 0), +(mm || 0), +(ss || 0)));
+      if (!hh) return new Date(+y, +mo - 1, +d, 23, 59, 0);
+      return new Date(+y, +mo - 1, +d, +hh, +mm, +(ss || 0));
+    }
+
+    function parseIcs(text) {
+      const unfolded = String(text).replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "");
+      const blocks = unfolded.split(/BEGIN:VEVENT/i).slice(1);
+      return blocks.map((block) => {
+        const get = (key) => {
+          const re = new RegExp(`^${key}[^:]*:(.*)$`, "mi");
+          const hit = block.match(re);
+          return hit ? hit[1].trim() : "";
+        };
+        const summary = get("SUMMARY").replace(/\\,/g, ",").replace(/\\n/g, " ");
+        const due = parseIcsDate(get("DTSTART"));
+        if (!summary || !due || Number.isNaN(due.getTime())) return null;
+        const parts = summary.split(/\s+[\-–—]\s+|:\s+/);
+        const title = parts.pop() || summary;
+        const course = parts.join(" ").trim() || "아이캠퍼스";
+        return {
+          id: `ics-${due.toISOString()}-${title}`,
+          type: guessType(summary),
+          course,
+          title,
+          due: due.toISOString(),
+          done: false,
+          source: "ics"
+        };
+      }).filter(Boolean);
+    }
+
+    function parseKoDateTime(dateStr, timeStr) {
+      const base = new Date(`${dateStr}T00:00:00`);
+      if (Number.isNaN(base.getTime())) return null;
+      const hm = String(timeStr || "").match(/(\d{1,2}):(\d{2})/);
+      if (!hm) {
+        base.setHours(23, 59, 0, 0);
+        return base;
+      }
+      let hour = +hm[1];
+      const minute = +hm[2];
+      if (/오후/.test(timeStr) && hour < 12) hour += 12;
+      if (/오전/.test(timeStr) && hour === 12) hour = 0;
+      base.setHours(hour, minute, 0, 0);
+      return base;
+    }
+
+    function parseCsv(text) {
+      const lines = String(text).replace(/^\uFEFF/, "").split(/\r?\n/).filter(Boolean);
+      const rows = [];
+      for (const line of lines.slice(1)) {
+        const cols = [];
+        let cur = "";
+        let q = false;
+        for (const ch of line) {
+          if (ch === "\"") { q = !q; continue; }
+          if (ch === "," && !q) { cols.push(cur); cur = ""; continue; }
+          cur += ch;
+        }
+        cols.push(cur);
+        const [date, , title, type, course, time, , status] = cols;
+        if (!title || title.includes("일정 없음")) continue;
+        const due = parseKoDateTime(date, time);
+        if (!due) continue;
+        rows.push({
+          id: `csv-${date}-${title}`,
+          type: guessType(title, type),
+          course: course && course !== "-" ? course : "아이캠퍼스",
+          title,
+          due: due.toISOString(),
+          done: /제출/.test(status || ""),
+          source: "csv"
+        });
+      }
+      return rows;
+    }
+
+    function mergeImported(incoming) {
+      const kept = items.filter((it) => !it.source);
+      const seen = new Set(kept.map((it) => `${it.title}|${it.due}`));
+      const extra = incoming.filter((it) => {
+        const key = `${it.title}|${it.due}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      items = [...kept, ...extra];
+      save(items);
+      return extra.length;
+    }
+
+    $("importForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const status = $("importStatus");
+      status.classList.remove("err");
+      status.textContent = "가져오는 중…";
+      try {
+        const file = $("csvFile").files[0];
+        let incoming = [];
+        if (file) {
+          incoming = parseCsv(await file.text());
+        } else {
+          const url = String($("feedUrl").value || "").trim();
+          if (!url) throw new Error("피드 주소나 CSV 중 하나는 필요합니다.");
+          localStorage.setItem(FEED_KEY, url);
+          const res = await fetch(`/api/ics?url=${encodeURIComponent(url)}`);
+          if (!res.ok) throw new Error("아이캠퍼스 피드를 읽지 못했습니다. 링크를 다시 확인하세요.");
+          incoming = parseIcs(await res.text());
+        }
+        const added = mergeImported(incoming);
+        track("import_feed", { item_type: file ? "csv" : "ics" });
+        status.textContent = `${added}개를 가져왔습니다.`;
+        render();
+        setTimeout(() => importSheet.close(), 700);
+      } catch (err) {
+        status.classList.add("err");
+        status.textContent = err.message || "가져오기에 실패했습니다.";
+      }
+    };
 
     $("resetDemo").onclick = () => {
       items = seed(new Date());

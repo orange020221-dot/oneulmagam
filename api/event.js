@@ -3,7 +3,8 @@ const ALLOWED = new Set([
   "add_item",
   "complete_item",
   "today_cleared",
-  "share_click"
+  "share_click",
+  "import_feed"
 ]);
 
 function normalizeUrl(url) {
