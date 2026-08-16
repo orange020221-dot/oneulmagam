@@ -4,5 +4,8 @@
   "description": "오늘과 이번 주 마감만 보는 스케이트보드 MVP",
   "scripts": {
     "start": "npx --yes serve ."
+  },
+  "dependencies": {
+    "pptxgenjs": "^4.0.1"
   }
 }

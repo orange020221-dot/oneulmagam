@@ -16,7 +16,7 @@ create policy "anon_insert_only"
   for insert
   to anon
   with check (
-    event_name in ('visit', 'add_item', 'complete_item', 'today_cleared', 'share_click')
+    event_name in ('visit', 'add_item', 'complete_item', 'today_cleared', 'share_click', 'import_feed')
   );
 
 -- 익명은 저장만 가능. 조회·수정·삭제 불가.

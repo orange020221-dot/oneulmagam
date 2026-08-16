@@ -325,6 +325,7 @@
       <h1>오늘마감</h1>
       <p class="date-line" id="todayLabel"></p>
       <button type="button" id="resetDemo" class="reset">예시 일정으로 되돌리기</button>
+      <button type="button" id="downloadKpi" class="reset">KPI 내려받기</button>
     </header>
 
     <section class="stats">
@@ -403,6 +404,7 @@
   <script>
     const KEY = "oneglance.v1";
     const FEED_KEY = "oneglance.feed";
+    const LOG_KEY = "oneglance.log";
     const TYPES = ["과제", "강의", "퀴즈", "시험"];
     const $ = (id) => document.getElementById(id);
 
@@ -549,6 +551,15 @@
 
     function track(event_name, extra) {
       const payload = { event_name, ...(extra || {}) };
+      try {
+        const log = JSON.parse(localStorage.getItem(LOG_KEY) || "[]");
+        log.push({
+          event_name,
+          item_type: extra && extra.item_type ? extra.item_type : "",
+          used_at: new Date().toISOString()
+        });
+        localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(-500)));
+      } catch {}
       if (window.gtag) window.gtag("event", event_name, extra || {});
       fetch("/api/event", {
         method: "POST",
@@ -763,6 +774,18 @@
       save(items);
       tab = "today";
       render();
+    };
+
+    $("downloadKpi").onclick = () => {
+      const log = JSON.parse(localStorage.getItem(LOG_KEY) || "[]");
+      const header = "event_name,item_type,used_at";
+      const rows = log.map((row) => `${row.event_name},${row.item_type || ""},${row.used_at}`);
+      const blob = new Blob(["\uFEFF" + [header, ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "오늘마감_KPI.csv";
+      a.click();
+      URL.revokeObjectURL(a.href);
     };
 
     $("form").onsubmit = (e) => {
