@@ -13,6 +13,13 @@
   <meta property="og:locale" content="ko_KR" />
   <meta name="twitter:card" content="summary" />
   <link rel="canonical" href="https://oneulmagam.vercel.app/" />
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-2V4DQKE0BM"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-2V4DQKE0BM');
+  </script>
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -570,6 +577,7 @@
     }
 
     async function bootAnalytics() {
+      if (window.gtag) return;
       try {
         const res = await fetch("/api/config");
         if (!res.ok) return;
