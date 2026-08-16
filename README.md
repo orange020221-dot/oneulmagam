@@ -6,6 +6,8 @@ CHS7006 실습 2·3 산출물. 오늘과 이번 주 마감만 보는 스케이�
 
 `index.html`을 브라우저로 연다. 서버 없이 화면은 동작한다.
 
+공개 주소: https://oneulmagam.vercel.app
+
 배포된 주소에서는 `/api/event`로 KPI가 쌓이고, GA가 있으면 방문·클릭도 잡힌다.
 
 ## 운영
