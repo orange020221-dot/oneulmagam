@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>오늘마감 — 오늘과 이번 주 마감만 본다</title>
+  <meta name="description" content="아이캠퍼스를 매일 훑지 않아도 되도록, 오늘과 이번 주 마감만 한눈에 보는 학부생용 일정 화면." />
+  <meta name="keywords" content="오늘마감, 아이캠퍼스 마감, 성균관대 과제 마감, 오늘 마감 일정" />
+  <meta name="robots" content="index,follow" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="오늘마감" />
+  <meta property="og:description" content="오늘과 이번 주 마감만 본다." />
+  <meta property="og:locale" content="ko_KR" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="canonical" href="https://oneulmagam.vercel.app/" />
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "오늘마감",
+      "applicationCategory": "ProductivityApplication",
+      "operatingSystem": "Web",
+      "description": "오늘과 이번 주 마감만 한눈에 보는 학부생용 일정 화면",
+      "inLanguage": "ko"
+    }
+  </script>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f3eee4;
+      --card: #fffcf6;
+      --ink: #1b1814;
+      --muted: #6f675c;
+      --line: #d8d0c2;
+      --deadline: #b4451b;
+      --soon: #9a6b12;
+      --done: #2c5a4a;
+      --shadow: 0 1px 0 rgba(27, 24, 20, 0.04), 0 10px 28px rgba(27, 24, 20, 0.05);
+      --safe-b: env(safe-area-inset-bottom);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      background:
+        radial-gradient(1200px 400px at 50% -80px, #fff8ec 0%, transparent 70%),
+        var(--paper);
+      color: var(--ink);
+      font-family: Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      letter-spacing: -0.01em;
+    }
+
+    button, input, select, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    .app {
+      width: min(430px, 100%);
+      margin: 0 auto;
+      min-height: 100dvh;
+      padding: 28px 20px calc(108px + var(--safe-b));
+    }
+
+    header { padding-bottom: 20px; }
+    .eyebrow {
+      margin: 0 0 8px;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    h1 {
+      margin: 0;
+      font-family: "Source Serif 4", "Apple Myungjo", serif;
+      font-size: 40px;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .date-line {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .reset {
+      margin-top: 10px;
+      border: 0;
+      background: none;
+      padding: 0;
+      color: #8a8175;
+      font-size: 12px;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 22px 0 18px;
+    }
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 16px 13px;
+      box-shadow: var(--shadow);
+    }
+    .stat b {
+      display: block;
+      font-family: "Source Serif 4", serif;
+      font-size: 28px;
+      font-weight: 600;
+      line-height: 1.1;
+    }
+    .stat span { color: var(--muted); font-size: 12px; }
+    .stat.hot b { color: var(--deadline); }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      padding: 4px;
+      background: rgba(255,252,246,0.8);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      margin-bottom: 16px;
+    }
+    .tabs button {
+      flex: 1;
+      border: 0;
+      background: transparent;
+      border-radius: 999px;
+      padding: 9px 0;
+      color: var(--muted);
+    }
+    .tabs button[aria-selected="true"] {
+      background: var(--ink);
+      color: #fff8ee;
+    }
+
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .empty {
+      background: var(--card);
+      border: 1px dashed #cfc6b6;
+      border-radius: 18px;
+      padding: 36px 22px;
+      text-align: center;
+    }
+    .empty strong {
+      display: block;
+      font-family: "Source Serif 4", serif;
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .empty p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px 14px 12px;
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: 56px 1fr auto;
+      gap: 10px;
+      align-items: start;
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
+    .card.done { opacity: 0.5; }
+    .card.done .title { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+    .dday {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: #f3e6d8;
+      color: var(--soon);
+    }
+    .dday.today { background: #f6ddd3; color: var(--deadline); }
+    .dday.over { background: #1b1814; color: #f6e7d4; }
+    .dday.safe { background: #e4eee8; color: var(--done); }
+
+    .title {
+      margin: 1px 0 4px;
+      font-size: 15.5px;
+      font-weight: 650;
+      line-height: 1.35;
+    }
+    .meta { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+    .chip {
+      font-size: 11px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: #efe8dc;
+      color: #514a41;
+    }
+    .chip.과제 { background: #f6ddd3; color: #8a3314; }
+    .chip.퀴즈 { background: #e4e8f4; color: #3d4f7c; }
+    .chip.강의 { background: #e4eee8; color: #2c5a4a; }
+    .chip.시험 { background: #ece3f2; color: #5b3a6e; }
+
+    .actions { display: flex; flex-direction: column; gap: 6px; }
+    .icon-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+    }
+    .icon-btn.ok { color: var(--done); border-color: #c7d8d0; }
+    .icon-btn.danger:hover { color: var(--deadline); }
+
+    .dock {
+      position: fixed;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
+      width: min(430px, 100%);
+      padding: 12px 20px calc(16px + var(--safe-b));
+      background: linear-gradient(180deg, transparent, var(--paper) 28%);
+    }
+    .primary {
+      width: 100%;
+      border: 0;
+      background: var(--ink);
+      color: #fff8ee;
+      border-radius: 16px;
+      padding: 15px 16px;
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    dialog {
+      width: min(400px, calc(100% - 24px));
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 0;
+      background: var(--card);
+      box-shadow: 0 24px 70px rgba(27,24,20,0.18);
+    }
+    dialog::backdrop { background: rgba(27,24,20,0.35); }
+    form { padding: 22px 20px 18px; }
+    form h2 {
+      margin: 0 0 16px;
+      font-family: "Source Serif 4", serif;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    label {
+      display: block;
+      margin: 0 0 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    input, select {
+      width: 100%;
+      margin-top: 6px;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 12px;
+      padding: 11px 12px;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: #b8aa94; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .ghost {
+      flex: 1;
+      border: 1px solid var(--line);
+      background: transparent;
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .form-actions .primary { flex: 1.4; padding: 12px; border-radius: 12px; }
+
+    .week-label {
+      margin: 8px 2px 6px;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+    .share-card {
+      margin-top: 10px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px 16px 14px;
+      box-shadow: var(--shadow);
+    }
+    .share-card p { margin: 0 0 12px; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+    .share-card strong {
+      display: block;
+      font-family: "Source Serif 4", serif;
+      font-size: 18px;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <p class="eyebrow">Campus · one glance</p>
+      <h1>오늘마감</h1>
+      <p class="date-line" id="todayLabel"></p>
+      <button type="button" id="resetDemo" class="reset">예시 일정으로 되돌리기</button>
+    </header>
+
+    <section class="stats">
+      <div class="stat hot">
+        <b id="todayCount">0</b>
+        <span>오늘 남은 마감</span>
+      </div>
+      <div class="stat">
+        <b id="weekCount">0</b>
+        <span>이번 주 남은 일정</span>
+      </div>
+    </section>
+
+    <div class="tabs" role="tablist">
+      <button type="button" id="tab-today" aria-selected="true">오늘</button>
+      <button type="button" id="tab-week" aria-selected="false">이번 주</button>
+    </div>
+
+    <main id="list" class="list"></main>
+  </div>
+
+  <div class="dock">
+    <button class="primary" id="openForm" type="button">일정 넣기</button>
+  </div>
+
+  <dialog id="sheet">
+    <form id="form" method="dialog">
+      <h2>일정 넣기</h2>
+      <div class="row">
+        <label>유형
+          <select name="type" required>
+            <option>과제</option>
+            <option>강의</option>
+            <option>퀴즈</option>
+            <option>시험</option>
+          </select>
+        </label>
+        <label>마감
+          <input name="due" type="datetime-local" required />
+        </label>
+      </div>
+      <label>과목
+        <input name="course" maxlength="80" placeholder="예: 경험디자인" required />
+      </label>
+      <label>제목
+        <input name="title" maxlength="100" placeholder="예: 기말 프로젝트 초안" required />
+      </label>
+      <div class="form-actions">
+        <button class="ghost" id="cancel" type="button">닫기</button>
+        <button class="primary" type="submit">저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    const KEY = "oneglance.v1";
+    const TYPES = ["과제", "강의", "퀴즈", "시험"];
+    const $ = (id) => document.getElementById(id);
+
+    const pad = (n) => String(n).padStart(2, "0");
+    const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+    const toLocalInput = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const weekday = ["일","월","화","수","목","금","토"];
+
+    function weekEnd(now) {
+      const start = startOfDay(now);
+      const sundayOffset = (7 - start.getDay()) % 7;
+      return addDays(start, sundayOffset);
+    }
+
+    function seed(now) {
+      const at = (offset, h = 23, m = 59) => {
+        const d = addDays(now, offset);
+        d.setHours(h, m, 0, 0);
+        return d.toISOString();
+      };
+      return [
+        { id: "s1", type: "과제", course: "신인류AI사피엔스경험디자인", title: "기말 프로젝트 가설·MVP 초안", due: at(0), done: false },
+        { id: "s2", type: "강의", course: "Public Economics", title: "3주차 강의 출석 인정 마감", due: at(0, 18, 0), done: false },
+        { id: "s3", type: "퀴즈", course: "Econometrics", title: "연습문제 2주차", due: at(2), done: false },
+        { id: "s4", type: "과제", course: "Money and Banking", title: "Problem set 1", due: at(4), done: false },
+        { id: "s5", type: "시험", course: "Game Theory", title: "중간 범위 공지 확인", due: at(6, 12, 0), done: false },
+        { id: "s6", type: "과제", course: "경험디자인", title: "지난주 놓친 퀴즈 만회", due: at(-1, 23, 59), done: false }
+      ];
+    }
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+      const items = seed(new Date());
+      save(items);
+      return items;
+    }
+    function save(items) { localStorage.setItem(KEY, JSON.stringify(items)); }
+
+    let items = load();
+    let tab = "today";
+
+    function dday(due, now) {
+      return Math.round((startOfDay(due) - startOfDay(now)) / 86400000);
+    }
+
+    function ddayLabel(n) {
+      if (n < 0) return `+${Math.abs(n)}`;
+      if (n === 0) return "오늘";
+      return `D-${n}`;
+    }
+
+    function formatDue(due) {
+      return `${due.getMonth()+1}/${due.getDate()} (${weekday[due.getDay()]}) ${pad(due.getHours())}:${pad(due.getMinutes())}`;
+    }
+
+    function visible(now) {
+      const today0 = startOfDay(now);
+      const end = weekEnd(now);
+      return items
+        .map((it) => ({ ...it, dueDate: new Date(it.due) }))
+        .filter((it) => {
+          const day = startOfDay(it.dueDate);
+          if (tab === "today") return day.getTime() === today0.getTime() || (it.dueDate < now && !it.done && day <= today0);
+          return day >= addDays(today0, -2) && day <= end;
+        })
+        .sort((a, b) => Number(a.done) - Number(b.done) || a.dueDate - b.dueDate);
+    }
+
+    function counts(now) {
+      const today0 = startOfDay(now);
+      const end = weekEnd(now);
+      const open = items.filter((it) => !it.done).map((it) => new Date(it.due));
+      return {
+        today: open.filter((d) => startOfDay(d).getTime() === today0.getTime() || d < now).length,
+        week: open.filter((d) => startOfDay(d) <= end).length
+      };
+    }
+
+    function render() {
+      const now = new Date();
+      $("todayLabel").textContent = `${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 ${weekday[now.getDay()]}요일 · 오늘과 이번 주만 본다`;
+      const c = counts(now);
+      $("todayCount").textContent = c.today;
+      $("weekCount").textContent = c.week;
+      $("tab-today").setAttribute("aria-selected", tab === "today");
+      $("tab-week").setAttribute("aria-selected", tab === "week");
+
+      const rows = visible(now);
+      const list = $("list");
+      if (!rows.length) {
+        list.innerHTML = tab === "today"
+          ? `<section class="empty"><strong>오늘은 마감이 없습니다.</strong><p>아이캠퍼스에 안 들어가도 됩니다. 새 일정이 생기면 아래에 넣으면 됩니다.</p></section>${shareCard()}`
+          : `<section class="empty"><strong>이번 주 남은 일정이 없습니다.</strong><p>불안하면 일정을 더 넣지 말고, 내일 아침에 다시 보면 됩니다.</p></section>`;
+        return;
+      }
+
+      const cards = rows.map((it) => {
+        const n = dday(it.dueDate, now);
+        const klass = n < 0 ? "over" : n === 0 ? "today" : n <= 2 ? "" : "safe";
+        return `
+          <article class="card ${it.done ? "done" : ""}">
+            <div class="dday ${klass}">${it.done ? "완료" : ddayLabel(n)}</div>
+            <div>
+              <div class="title">${escapeHtml(it.title)}</div>
+              <div class="meta">${escapeHtml(it.course)} · ${formatDue(it.dueDate)}</div>
+              <div class="chips"><span class="chip ${it.type}">${it.type}</span></div>
+            </div>
+            <div class="actions">
+              <button class="icon-btn ok" data-act="toggle" data-id="${it.id}" title="완료">${it.done ? "↩" : "✓"}</button>
+              <button class="icon-btn danger" data-act="del" data-id="${it.id}" title="삭제">✕</button>
+            </div>
+          </article>`;
+      }).join("");
+      list.innerHTML = cards + (tab === "today" && remainingToday() === 0 ? shareCard() : "");
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (ch) => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+      }[ch]));
+    }
+
+    function remainingToday() {
+      const now = new Date();
+      const today0 = startOfDay(now);
+      return items.filter((it) => {
+        if (it.done) return false;
+        const due = new Date(it.due);
+        return startOfDay(due).getTime() === today0.getTime() || due < now;
+      }).length;
+    }
+
+    function shareCard() {
+      return `<aside class="share-card">
+        <strong>같은 과 친구에게 보내기</strong>
+        <p>설문 대신, 이 링크를 쓰는 사람이 생기는지가 KPI입니다.</p>
+        <button class="primary" id="shareLink" type="button">링크 복사</button>
+      </aside>`;
+    }
+
+    function track(event_name, extra) {
+      const payload = { event_name, ...(extra || {}) };
+      if (window.gtag) window.gtag("event", event_name, extra || {});
+      fetch("/api/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true
+      }).catch(() => {});
+    }
+
+    async function bootAnalytics() {
+      try {
+        const res = await fetch("/api/config");
+        if (!res.ok) return;
+        const cfg = await res.json();
+        if (!cfg.gaId) return;
+        const s = document.createElement("script");
+        s.async = true;
+        s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(cfg.gaId)}`;
+        document.head.appendChild(s);
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function(){ window.dataLayer.push(arguments); };
+        window.gtag("js", new Date());
+        window.gtag("config", cfg.gaId);
+      } catch {}
+    }
+
+    $("tab-today").onclick = () => { tab = "today"; render(); };
+    $("tab-week").onclick = () => { tab = "week"; render(); };
+
+    $("list").onclick = async (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      if (btn.id === "shareLink") {
+        const url = location.href.split("#")[0];
+        try { await navigator.clipboard.writeText(url); } catch {}
+        btn.textContent = "복사했습니다";
+        track("share_click");
+        return;
+      }
+      const id = btn.dataset.id;
+      if (btn.dataset.act === "toggle") {
+        const before = remainingToday();
+        const target = items.find((it) => it.id === id);
+        items = items.map((it) => it.id === id ? { ...it, done: !it.done } : it);
+        if (target && !target.done) {
+          track("complete_item", { item_type: target.type });
+          if (before > 0 && remainingToday() === 0) track("today_cleared");
+        }
+      }
+      if (btn.dataset.act === "del") {
+        items = items.filter((it) => it.id !== id);
+      }
+      save(items);
+      render();
+    };
+
+    const sheet = $("sheet");
+    $("openForm").onclick = () => {
+      const due = new Date();
+      due.setHours(23, 59, 0, 0);
+      document.querySelector("[name=due]").value = toLocalInput(due);
+      sheet.showModal();
+    };
+    $("cancel").onclick = () => sheet.close();
+
+    $("resetDemo").onclick = () => {
+      items = seed(new Date());
+      save(items);
+      tab = "today";
+      render();
+    };
+
+    $("form").onsubmit = (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+      items.push({
+        id: crypto.randomUUID(),
+        type: TYPES.includes(data.get("type")) ? data.get("type") : "과제",
+        course: String(data.get("course") || "").trim(),
+        title: String(data.get("title") || "").trim(),
+        due: new Date(data.get("due")).toISOString(),
+        done: false
+      });
+      save(items);
+      track("add_item", { item_type: TYPES.includes(data.get("type")) ? data.get("type") : "과제" });
+      e.target.reset();
+      sheet.close();
+      render();
+    };
+
+    bootAnalytics();
+    track("visit");
+    render();
+  </script>
+</body>
+</html>
